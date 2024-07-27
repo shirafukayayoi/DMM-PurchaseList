@@ -2,8 +2,9 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 import time
-import csv
 from datetime import datetime
+import gspread
+from google.oauth2.service_account import Credentials
 
 def main():
     today = datetime.now().strftime("%Y-%m-%d")
@@ -11,6 +12,7 @@ def main():
     email = ""
     password = ""
     csv_title = f"DMM_{today}_PURCHASED_LIST.csv"
+    sheet_url = ""
 
     driver = webdriver.Chrome()
     
@@ -21,9 +23,9 @@ def main():
     dmm_library.navigate_to_library()
     data = dmm_library.scroll_and_collect_data()
     
-    csv_writer = CSVWriter(csv_title)
-    csv_writer.write_data(data)
-    
+    google_spreadsheet = GoogleSpreadsheet()    # initを実行するために必要
+    google_spreadsheet.write_data(data)
+
     driver.quit()
 
 class DMMLogin:
@@ -36,7 +38,7 @@ class DMMLogin:
     def login(self):
         self.driver.get(self.login_url)
         self.driver.set_window_size(1000, 1000)
-        self.driver.implicitly_wait(10)
+        time.sleep(10)
         
         try:
             name_box = self.driver.find_element(By.NAME, "login_id")
@@ -51,14 +53,10 @@ class DMMLogin:
             print(f"パスワード入力フィールドが見つかりません: {e}")
         
         try:
-            remember_box = self.driver.find_element(By.CLASS_NAME, "checkbox-input")
-            remember_box.click()
-        except Exception as e:
-            print(f"チェックボックスが見つかりません: {e}")
-        
-        try:
+            time.sleep(3)
             login_button = self.driver.find_element(By.XPATH, '//input[@value="ログイン"]')
             login_button.click()
+            print("フォームを送信しました")
         except Exception as e:
             print(f"フォームの送信に失敗しました: {e}")
 
@@ -67,8 +65,9 @@ class DMMLibrary:
         self.driver = driver
 
     def navigate_to_library(self):
+        time.sleep(3)
         self.driver.get("https://www.dmm.co.jp/dc/-/mylibrary/")
-        self.driver.implicitly_wait(10)
+
         try:
             yes_button = self.driver.find_element(By.XPATH, "//a[contains(@href, 'declared=yes')]")
             yes_button.click()
@@ -106,15 +105,28 @@ class DMMLibrary:
 
         return data
 
-class CSVWriter:
-    def __init__(self, filename):
-        self.filename = filename
+class GoogleSpreadsheet:
+    def __init__(self,sheet_url):
+        self.scope = ['https://spreadsheets.google.com/feeds',
+                        'https://www.googleapis.com/auth/drive']
+        self.creds = Credentials.from_service_account_file('credentials.json', scopes=self.scope)
+        self.client = gspread.authorize(self.creds)
+        self.spreadsheet = self.client.open_by_url(sheet_url)
+        self.sheet = self.spreadsheet.sheet1  # 最初のシートにアクセス
+        print("Google Spreadsheetに接続しました")
 
+    # Googleスプレッドシートにデータを書き込む
     def write_data(self, data):
-        with open(self.filename, "w", newline="", encoding="utf-8") as f:
-            writer = csv.writer(f)
-            writer.writerow(["タイトル", "サークル", "種類"])
-            writer.writerows(data)
+        self.sheet.clear()
+        self.sheet.insert_row(["タイトル", "サークル", "種類"], 1)
+        for row in data:
+            time.sleep(3)
+            count += 1
+            return count
+            self.sheet.append_row(row)
+            print(row)
+        print(f"{count}回データを書き込みました。")
+
 
 if __name__ == "__main__":
     main()
