@@ -33,3 +33,10 @@ GoogleSheetにデータを入れる用のスクリプトも作りました。
 1. `credentials.json` で指定したアカウントにGoogleSheetの編集権限があることを確認します。  
    自分は[https://zenn.dev/yamagishihrd/articles/2022-09_01-google-spreadsheet-with-python](https://zenn.dev/yamagishihrd/articles/2022-09_01-google-spreadsheet-with-python)これを参考にしました。
 1. 実行します。
+
+## DIscordのBOTで通知する用も作った
+
+DiscordのBOTで通知する用のスクリプトも作りました。
+
+DiscordのBOTを作成して、トークンを取得します。  
+そのトークンを`token`に設定します。
