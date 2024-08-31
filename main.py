@@ -35,32 +35,32 @@ class DMMLogin:
 
     def login(self):
         self.driver.get(self.login_url)
-        self.driver.set_window_size(1000, 1000)
-        self.driver.implicitly_wait(10)
+        self.driver.set_window_size(1000, 1000) # ウィンドウサイズを指定
+        time.sleep(10)
         
         try:
             name_box = self.driver.find_element(By.NAME, "login_id")
             name_box.send_keys(self.email)
+            print("ユーザー名入力完了")
         except Exception as e:
             print(f"ユーザー名入力フィールドが見つかりません: {e}")
         
         try:
             pass_box = self.driver.find_element(By.NAME, "password")
             pass_box.send_keys(self.password)
+            print("パスワード入力完了")
         except Exception as e:
             print(f"パスワード入力フィールドが見つかりません: {e}")
         
         try:
-            remember_box = self.driver.find_element(By.CLASS_NAME, "checkbox-input")
-            remember_box.click()
-        except Exception as e:
-            print(f"チェックボックスが見つかりません: {e}")
-        
-        try:
-            login_button = self.driver.find_element(By.XPATH, '//input[@value="ログイン"]')
-            login_button.click()
+            time.sleep(3)
+            login_button = self.driver.find_element(By.XPATH, '//button[text()="ログイン"]')
+            self.driver.execute_script("arguments[0].click();", login_button)
+            print("フォームを送信しました")
         except Exception as e:
             print(f"フォームの送信に失敗しました: {e}")
+        
+        print("ログイン完了")
 
 class DMMLibrary:
     def __init__(self, driver):
