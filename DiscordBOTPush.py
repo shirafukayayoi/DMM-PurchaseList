@@ -122,9 +122,6 @@ class DMMLibrary:
 
         length = min(len(titles), len(circles), len(kinds))
         data = [(titles[i].text, circles[i].text, kinds[i].text) for i in range(length)]
-        
-        for title, circle, kind in data:
-            print(title, circle, kind)
 
         return data
 
