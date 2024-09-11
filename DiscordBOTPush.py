@@ -34,6 +34,7 @@ def main():
     dmm_library = DMMLibrary(driver)  # initにdriverを渡す
     dmm_library.navigate_to_library()
     data = dmm_library.scroll_and_collect_data()  # 取得した値をdataに格納
+    driver.quit()
 
     google_spreadsheet = GoogleSpreadsheet(sheet_url)  # クラスに値を渡す
     count = google_spreadsheet.write_data(data, count)  # countを戻り値として受け取る
@@ -43,7 +44,7 @@ def main():
     discord_bot = DiscordBOT(token)
     discord_bot.run(sheet_url)  # メッセージを送信し、Botを実行します
 
-    driver.quit()
+
     sys.exit()
 
 class DMMLogin:
