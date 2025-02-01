@@ -1,120 +1,125 @@
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.common.keys import Keys
-import time
+import asyncio
 import csv
-from datetime import datetime
+import json
+import os
 
-def main():
-    today = datetime.now().strftime("%Y-%m-%d")
-    login_url = "https://accounts.dmm.co.jp/service/login/password/=/path=SgVTFksZDEtUDFNKUkQfGA__"
-    email = ""
-    password = ""
-    csv_title = f"DMM_{today}_PURCHASED_LIST.csv"
+from playwright.async_api import async_playwright
 
-    driver = webdriver.Chrome()
-    
-    dmm_login = DMMLogin(driver, login_url, email, password)
-    dmm_login.login()
-    
-    dmm_library = DMMLibrary(driver)
-    dmm_library.navigate_to_library()
-    data = dmm_library.scroll_and_collect_data()
-    
-    csv_writer = CSVWriter(csv_title)
-    csv_writer.write_data(data)
-    
-    driver.quit()
-
-class DMMLogin:
-    def __init__(self, driver, login_url, email, password):
-        self.driver = driver
-        self.login_url = login_url
-        self.email = email
-        self.password = password
-
-    def login(self):
-        self.driver.get(self.login_url)
-        self.driver.set_window_size(1000, 1000) # ウィンドウサイズを指定
-        time.sleep(10)
-        
-        try:
-            name_box = self.driver.find_element(By.NAME, "login_id")
-            name_box.send_keys(self.email)
-            print("ユーザー名入力完了")
-        except Exception as e:
-            print(f"ユーザー名入力フィールドが見つかりません: {e}")
-        
-        try:
-            pass_box = self.driver.find_element(By.NAME, "password")
-            pass_box.send_keys(self.password)
-            print("パスワード入力完了")
-        except Exception as e:
-            print(f"パスワード入力フィールドが見つかりません: {e}")
-        
-        try:
-            time.sleep(3)
-            login_button = self.driver.find_element(By.XPATH, '//button[text()="ログイン"]')
-            self.driver.execute_script("arguments[0].click();", login_button)
-            print("フォームを送信しました")
-        except Exception as e:
-            print(f"フォームの送信に失敗しました: {e}")
-        
-        print("ログイン完了")
 
 class DMMLibrary:
-    def __init__(self, driver):
-        self.driver = driver
+    def __init__(self, page):
+        self.page = page
 
-    def navigate_to_library(self):
-        self.driver.get("https://www.dmm.co.jp/dc/-/mylibrary/")
-        self.driver.implicitly_wait(10)
+    async def navigate_to_library(self):
+        await self.page.goto("https://www.dmm.co.jp/dc/-/mylibrary/")
         try:
-            yes_button = self.driver.find_element(By.XPATH, "//a[contains(@href, 'declared=yes')]")
-            yes_button.click()
+            await asyncio.sleep(3)
+            await self.page.click('a[href*="declared=yes"]')
+            print("「はい」をクリックしました")
         except Exception as e:
             print(f"「はい」が見つかりません: {e}")
-        time.sleep(4)
+        await asyncio.sleep(4)
 
-    def scroll_and_collect_data(self):
+    async def scroll_and_collect_data(self):
         try:
-            svg_path = self.driver.find_element(By.XPATH, "//*[@class='silex-element-content']")
-            svg_path.click()
+            # 「×」ボタンをクリック
+            await self.page.click(".silex-element-content")
+            print("「×」をクリックしました")
         except Exception as e:
-            print(f"「×」が見つかりません")
-        
-        actions = self.driver.find_element(By.CLASS_NAME,"purchasedListArea1Znew")
-        previous_scroll_height = 0
-        
-        while True:
-            current_scroll_height = self.driver.execute_script("return arguments[0].scrollTop + arguments[0].clientHeight;", actions)
-            self.driver.execute_script("arguments[0].scrollTop += arguments[0].clientHeight;", actions)
-            time.sleep(1)
-            new_scroll_height = self.driver.execute_script("return arguments[0].scrollTop + arguments[0].clientHeight;", actions)
-            if new_scroll_height == current_scroll_height:
-                break
-        
-        titles = self.driver.find_elements(By.CLASS_NAME, "productTitle3sdi8")
-        circles = self.driver.find_elements(By.CLASS_NAME, "circleName209pI")
-        kinds = self.driver.find_elements(By.CLASS_NAME, "default3EHgn")
+            print(f"「×」が見つかりません: {e}")
 
-        length = min(len(titles), len(circles), len(kinds))
-        data = [(titles[i].text, circles[i].text, kinds[i].text) for i in range(length)]
-        
-        for title, circle, kind in data:
-            print(title, circle, kind)
+        # スクロール対象の要素を取得
+        actions = self.page.locator(".purchasedListArea1Znew")
+        if await actions.count() == 0:
+            print("スクロール対象の要素が見つかりません")
+            return []
+
+        previous_scroll_height = 0
+
+        while True:
+            # 現在のスクロール位置と要素の高さを取得
+            current_scroll_height = await self.page.evaluate(
+                "(element) => element.scrollTop + element.clientHeight",
+                await actions.element_handle(),
+            )
+
+            # スクロールを実行
+            await self.page.evaluate(
+                "(element) => { element.scrollTop += element.clientHeight; }",
+                await actions.element_handle(),
+            )
+            await asyncio.sleep(1)
+
+            # 新しいスクロール位置を取得
+            new_scroll_height = await self.page.evaluate(
+                "(element) => element.scrollTop + element.clientHeight",
+                await actions.element_handle(),
+            )
+
+            # スクロールが終了したか確認
+            if new_scroll_height == current_scroll_height:
+                print("スクロールが終了しました")
+                break
+
+        # タイトル、サークル、種類を取得
+        titles = await self.page.query_selector_all(".productTitle3sdi8")
+        circles = await self.page.query_selector_all(".circleName209pI")
+        kinds = await self.page.query_selector_all(".default3EHgn")
+
+        titles_text = [await title.inner_text() for title in titles]
+        circles_text = [await circle.inner_text() for circle in circles]
+        kinds_text = [await kind.inner_text() for kind in kinds]
+
+        length = min(len(titles_text), len(circles_text), len(kinds_text))
+        data = [(titles_text[i], circles_text[i], kinds_text[i]) for i in range(length)]
 
         return data
 
-class CSVWriter:
-    def __init__(self, filename):
-        self.filename = filename
 
-    def write_data(self, data):
-        with open(self.filename, "w", newline="", encoding="utf-8") as f:
-            writer = csv.writer(f)
-            writer.writerow(["タイトル", "サークル", "種類"])
-            writer.writerows(data)
+async def main():
+    email = input("DMMのメールアドレスを入力してください: ")
+    password = input("DMMのパスワードを入力してください: ")
+
+    login_url = "https://accounts.dmm.co.jp/service/login/password/=/path=SgVTFksZDEtUDFNKUkQfGA__"
+
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(headless=False)
+        page = await browser.new_page()
+
+        if os.path.exists("dmm_cookies.json"):
+            with open("dmm_cookies.json", "r") as f:
+                cookies = json.load(f)
+            await page.context.add_cookies(cookies)
+            print("クッキーを読み込みました")
+        else:
+            # DMMにログイン
+            await page.goto(login_url)
+            await page.fill('input[name="login_id"]', email)
+            await page.fill('input[name="password"]', password)
+            await page.click('button:text("ログイン")')
+            print("ログイン完了")
+            cookies = await page.context.cookies()
+            with open("dmm_cookies.json", "w") as f:
+                json.dump(cookies, f)
+                print("クッキーを保存しました")
+
+            await asyncio.sleep(3)
+
+        dmm_library = DMMLibrary(page)
+        await dmm_library.navigate_to_library()
+        data = await dmm_library.scroll_and_collect_data()
+        await browser.close()
+
+        if data and isinstance(data[0], dict):
+            with open("output.csv", "w", newline="", encoding="utf-8") as csvfile:
+                writer = csv.DictWriter(csvfile, fieldnames=data[0].keys())
+                writer.writeheader()
+                writer.writerows(data)
+        else:
+            with open("output.csv", "w", newline="", encoding="utf-8") as csvfile:
+                writer = csv.writer(csvfile)
+                writer.writerows(data)
+
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
