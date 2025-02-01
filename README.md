@@ -8,8 +8,11 @@ DMMの同人購入リストを取得するためのスクリプトです。
 
 ## 使い方
 
-1. 必要なライブラリをインストールします。
+1. `cmd`を開いてください。
+1. 必要なライブラリをインストールします。  
    `pip install -r req.txt`
+1. 次にplaywrightの必要なファイルをダウンロードします。
+1. `playwright install`
 1. `python dmm_purchaselist.py` を実行します。
 1. `output.csv` が生成されます。  
    おわり。
